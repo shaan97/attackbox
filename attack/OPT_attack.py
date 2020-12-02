@@ -18,8 +18,7 @@ class OPT_attack(object):
             train_dataset: set of training data
             (x0, y0): original image
         """
-        print(x0)
-        print(y0)
+        y0=y0[0]
         model = self.model
         if type(x0) is torch.Tensor:
             x0 = x0.cpu().numpy()
