@@ -1,5 +1,5 @@
 import time, torch
-import numpy as np 
+import numpy as np
 from numpy import linalg as LA
 
 MAX_ITER = 1000
@@ -8,16 +8,18 @@ class OPT_attack(object):
     def __init__(self,model):
         self.model = model
         self.log = torch.ones(MAX_ITER,2)
-    
+
     def get_log(self):
         return self.log
-        
+
     def attack_untargeted(self, x0, y0, alpha = 0.2, beta = 0.001, iterations = 1500, query_limit=80000):
         """ Attack the original image and return adversarial example
             model: (pytorch model)
             train_dataset: set of training data
             (x0, y0): original image
         """
+        print(x0)
+        print(y0)
         model = self.model
         if type(x0) is torch.Tensor:
             x0 = x0.cpu().numpy()
@@ -61,14 +63,14 @@ class OPT_attack(object):
                         best_theta, g_theta = theta, lbd
                         print("--------> Found distortion %.4f" % g_theta)
 
-        if g_theta == float('inf'):    
+        if g_theta == float('inf'):
             print("Couldn't find valid initial, failed")
             return torch.tensor(x0).cuda()
         timeend = time.time()
-        print("==========> Found best distortion %.4f in %.4f seconds using %d queries" % (g_theta, timeend-timestart, query_count))    
+        print("==========> Found best distortion %.4f in %.4f seconds using %d queries" % (g_theta, timeend-timestart, query_count))
         self.log[0][0], self.log[0][1] = g_theta, query_count
-        
-        
+
+
         timestart = time.time()
         g1 = 1.0
         theta, g2 = best_theta, g_theta
@@ -104,7 +106,7 @@ class OPT_attack(object):
 
             min_theta = theta
             min_g2 = g2
-        
+
             for _ in range(15):
                 new_theta = theta - alpha * gradient
                 new_theta /= LA.norm(new_theta)
@@ -112,7 +114,7 @@ class OPT_attack(object):
                 opt_count += count
                 alpha = alpha * 2
                 if new_g2 < min_g2:
-                    min_theta = new_theta 
+                    min_theta = new_theta
                     min_g2 = new_g2
                 else:
                     break
@@ -125,7 +127,7 @@ class OPT_attack(object):
                     new_g2, count = self.fine_grained_binary_search_local(model, x0, y0, new_theta, initial_lbd = min_g2, tol=beta/500)
                     opt_count += count
                     if new_g2 < g2:
-                        min_theta = new_theta 
+                        min_theta = new_theta
                         min_g2 = new_g2
                         break
 
@@ -136,7 +138,7 @@ class OPT_attack(object):
 
             if g2 < g_theta:
                 best_theta, g_theta = theta, g2
-            
+
             #print(alpha)
             if alpha < 1e-4:
                 alpha = 1.0
@@ -148,7 +150,7 @@ class OPT_attack(object):
         target = model.predict_label(x0 + g_theta*best_theta)
         timeend = time.time()
         print("\nAdversarial Example Found Successfully: distortion %.4f target %d queries %d \nTime: %.4f seconds" % (g_theta, target, query_count + opt_count, timeend-timestart))
-        
+
         self.log[i+1:,0] = g_theta
         self.log[i+1:,1] = opt_count + query_count
         return torch.tensor(x0 + g_theta*best_theta, dtype=torch.float).cuda()
@@ -156,7 +158,7 @@ class OPT_attack(object):
     def fine_grained_binary_search_local(self, model, x0, y0, theta, initial_lbd = 1.0, tol=1e-5):
         nquery = 0
         lbd = initial_lbd
-         
+
         if model.predict_label(x0+lbd*theta) == y0:
             lbd_lo = lbd
             lbd_hi = lbd*1.01
@@ -185,14 +187,14 @@ class OPT_attack(object):
 
     def fine_grained_binary_search(self, model, x0, y0, theta, initial_lbd, current_best):
         nquery = 0
-        if initial_lbd > current_best: 
+        if initial_lbd > current_best:
             if model.predict_label(x0+current_best*theta) == y0:
                 nquery += 1
                 return float('inf'), nquery
             lbd = current_best
         else:
             lbd = initial_lbd
-        
+
         lbd_hi = lbd
         lbd_lo = 0.0
 
@@ -211,6 +213,4 @@ class OPT_attack(object):
             print("Not Implemented.")
         else:
             adv = self.attack_untargeted(input_xi, label_or_target)
-        return adv   
-    
-        
+        return adv
